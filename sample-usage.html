@@ -1,0 +1,74 @@
+<!--
+Demonstration of how to use jqplotToImage().
+
+In this usage, we extract a jqPlot object and convert it to an image 
+in order to save it to user's persistent storage (e.g. disk).
+Most modern browsers will not allow Javascript engine to do this directly for security reasons,
+so as a workaround, we upload the image to /export_plot, a utility location on our server whose handler will repackage it 
+and serve it as a file attachment that the browser can then save to persistent storage with sufficient permission.
+
+Global.jqp references a plot object created by jqPlot whose canvas sits in <div id="plotdiv">.
+Clicking on download_plot_button triggers an event that calls jqplotToImage() which returns an HTML canvas object.
+We then convert that to to a data URL ("canvas.toDataURL()") 
+and loaded it into a form and submitted to /export_plot.
+
+Caveat: This code has been distilled from working code for illustration purposes, 
+but has not been tested directly.
+The author makes no claims and offers no warranty.
+-->
+
+<?php
+
+// Called by handler of /export_plot.
+// Argument 'data' is a string that begins with "data:image/png;base64,"... followed by base64-encoded PNG image.
+// Download image as a file attachment that browser will save to hard drive.
+public function export_plot(data) {
+	//removing the "data:image/png;base64," prefix
+	$base64_image = substr($data, strpos($data, ',') + 1);
+	print('Content-Type: image/png');
+	print('Content-Disposition: attachment; filename="filename.png"');
+	print(); // empty line
+	print(base64_decode($base64_image));
+}
+?>
+
+<button id="download_plot_button">Download Plot</button>
+
+
+<div id="export-plot">
+  <form action="/export_plot" method="post" accept-charset="utf-8">
+	<textarea class="display-none" rows="10" cols="10" id="pngdata"> </textarea>
+  </form>
+</div>
+
+<script type="text/javascript">
+
+// Set up plot.
+$(function() {
+
+	// Can be called only on a form.
+	$.fn.upload_image = function(img) {
+	  $(this).find('#pngdata').html(img.toDataURL("image/png"));
+	  return this;
+	};
+
+	var canvas = document.createElement("canvas");
+
+	if (window.G_vmlCanvasManager) {
+	  window.G_vmlCanvasManager.initElement(canvas); // for IE
+	}
+
+	if (canvas.toDataURL) {
+	  $('#download_plot_button').click(function() {
+		  var img = $('#plotdiv').jqplotToImage(Global.jqp, 50, 0);
+		  if (img) {
+			var name = $('h1#title').text().trim();
+			$('#export-plot form').upload_image(img).submit();
+		  }
+		});
+	} else {
+	  $('#download_plot_button').remove(); // Browser not capable.
+	}
+	$(canvas).remove();
+  });
+</script>
